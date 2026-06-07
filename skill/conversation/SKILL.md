@@ -145,7 +145,7 @@ Subsequent messages will be much faster. This is a one-time delay per session.
 
 ```python
 # 1. Start PTT mode with VAD auto-stop AND auto-start for seamless conversation
-start_ptt_mode(auto_stop=True, auto_start=True)
+start_ptt_mode(auto_stop=False, auto_start=False)
 
 # 2. Welcome message - recording starts AUTOMATICALLY after TTS completes!
 # IMPORTANT: Use the user's language! Include first-message latency notice.
@@ -172,7 +172,7 @@ speak_and_wait("What would you like to know next?")  # After this, recording aut
 
 ```python
 # Start with VAD auto-stop AND auto-start for seamless conversation
-start_ptt_mode(auto_stop=True, auto_start=True)
+start_ptt_mode(auto_stop=False, auto_start=False)
 
 # Welcome message - recording starts automatically after TTS!
 # French: "Prêt. Parle quand le micro s'active. Le premier message peut prendre un moment."
