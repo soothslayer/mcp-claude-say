@@ -96,8 +96,12 @@ if ! command -v say &> /dev/null; then
 fi
 
 # Check Python 3
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Error: Python 3 is required${NC}"
+# Allow overriding the interpreter used for the venv, e.g. PYTHON=python3.11 ./install.sh
+# (Kokoro TTS pulls in misaki 0.8.x, which requires Python >=3.8,<3.13.)
+PYTHON_BIN="${PYTHON:-python3}"
+if ! command -v "$PYTHON_BIN" &> /dev/null; then
+    echo -e "${RED}Error: Python interpreter '$PYTHON_BIN' not found${NC}"
+    echo -e "${YELLOW}Set PYTHON to a valid interpreter, e.g. PYTHON=python3.11 ./install.sh${NC}"
     exit 1
 fi
 
@@ -492,9 +496,22 @@ fi
 echo -e "${GREEN}[3/6]${NC} Setting up Python virtual environment..."
 cd "$INSTALL_DIR"
 
+# Kokoro TTS requires misaki 0.8.x, which only supports Python <3.13.
+# Fail early with a clear message instead of a cryptic pip resolver error.
+if [[ "$TTS_BACKEND" == "kokoro" ]]; then
+    PY_MINOR=$("$PYTHON_BIN" -c 'import sys; print(sys.version_info[1])')
+    PY_MAJOR=$("$PYTHON_BIN" -c 'import sys; print(sys.version_info[0])')
+    if [[ "$PY_MAJOR" -ne 3 || "$PY_MINOR" -ge 13 ]]; then
+        echo -e "${RED}Error: Kokoro TTS requires Python 3.8-3.12 (misaki 0.8.x), but '$PYTHON_BIN' is $PY_MAJOR.$PY_MINOR${NC}"
+        echo -e "${YELLOW}Install a compatible interpreter and re-run, e.g.:${NC}"
+        echo -e "${YELLOW}  PYTHON=python3.11 ./install.sh --tts-kokoro${NC}"
+        exit 1
+    fi
+fi
+
 # Create venv if not exists or not in update mode
 if [[ ! -d "venv" ]] || [[ "$UPDATE_MODE" == false ]]; then
-    python3 -m venv venv
+    "$PYTHON_BIN" -m venv venv
 fi
 source venv/bin/activate
 
