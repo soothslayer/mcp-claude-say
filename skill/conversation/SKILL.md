@@ -10,13 +10,11 @@ You now have access to both text-to-speech (claude-say) AND speech-to-text (clau
 
 ## Architecture
 
-Uses **Push-to-Talk (PTT)** mode with **VAD auto-stop** AND **auto-start**:
-- **Recording starts automatically** after the welcome message (no key press needed!)
+Uses **Push-to-Talk (PTT)** mode with **VAD auto-stop**:
+- **Press the PTT key** (Right Command by default) each time you want to speak
 - **Recording stops automatically** when you stop speaking (VAD detection)
-- **Recording restarts automatically** after Claude finishes speaking
-- The conversation flows naturally without any key presses!
+- After Claude finishes speaking, recording does **NOT** restart on its own — press the PTT key again to talk
 - Silence threshold: 1.5 seconds
-- Echo prevention delay: 400ms after TTS
 - **Mic indicator** appears in menu bar when recording is active
 
 ## Available MCP Tools
@@ -26,7 +24,7 @@ Uses **Push-to-Talk (PTT)** mode with **VAD auto-stop** AND **auto-start**:
 **Synchronous mode (blocking) - RECOMMENDED:**
 | Tool | Description |
 |------|-------------|
-| `start_ptt_mode(key?, auto_stop?, vad_silence_ms?, auto_start?, echo_delay_ms?)` | Start PTT mode. **Use auto_stop=True, auto_start=True** for seamless conversation |
+| `start_ptt_mode(key?, auto_stop?, vad_silence_ms?, auto_start?, echo_delay_ms?)` | Start PTT mode. **Use auto_stop=True, auto_start=False** so recording only starts when the user presses the PTT key |
 | `stop_ptt_mode()` | Stop PTT mode |
 | `get_ptt_status()` | Get PTT state (includes "auto_stop, auto_start" indicators if enabled) |
 | `get_segment_transcription(wait?, timeout?)` | Wait for transcription (default timeout: 120s). Returns status: [Ready], [Recording...], [Transcribing...] |
@@ -109,11 +107,11 @@ Subsequent messages will be much faster. This is a one-time delay per session.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│    Seamless Conversation with Auto-Stop + Auto-Start    │
+│      Push-to-Talk Conversation with VAD Auto-Stop       │
 │                                                         │
 │  /conversation → Welcome TTS                            │
 │       │                                                 │
-│  [TTS complete] → [400ms delay] → Auto-start recording  │
+│  [User presses PTT key] → Recording starts              │
 │       │                                                 │
 │       │     🎤 Mic indicator in menu bar                │
 │       │     (user speaks...)                            │
@@ -124,65 +122,65 @@ Subsequent messages will be much faster. This is a one-time delay per session.
 │  Claude responds vocally (TTS)                          │
 │       │                                                 │
 │       ↓                                                 │
-│  [TTS complete] → [400ms delay] → Auto-start recording  │
+│  [TTS complete] → waits for next PTT key press          │
 │       │                                                 │
-│       │     (user speaks... loop continues!)            │
+│       │     (user presses PTT key to speak again)       │
 │       │                                                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
 1. User types `/conversation` to start
 2. Claude plays welcome message (TTS)
-3. **After TTS → 400ms delay → recording auto-starts** (mic indicator in menu bar)
+3. **User presses the PTT key** (Right Command) to start recording (mic indicator in menu bar)
 4. User speaks when mic is active
 5. **VAD detects 1.5s of silence → auto-stops recording**
 6. Audio is transcribed with the configured STT engine
 7. Claude processes and responds **vocally**
-8. **After TTS completes → 400ms delay → auto-starts recording**
-9. Conversation flows until user says "fin de session"
+8. **After TTS completes, recording does NOT auto-start** — user presses the PTT key again to speak
+9. Conversation continues this way until user says "fin de session"
 
 ## Starting Conversation Mode
 
 ```python
-# 1. Start PTT mode with VAD auto-stop AND auto-start for seamless conversation
+# 1. Start PTT mode. auto_start=False so recording only begins when the user
+#    presses the PTT key; auto_stop=False so recording is not stopped by VAD.
 start_ptt_mode(auto_stop=False, auto_start=False)
 
-# 2. Welcome message - recording starts AUTOMATICALLY after TTS completes!
+# 2. Welcome message - tell the user to press the PTT key to speak.
 # IMPORTANT: Use the user's language! Include first-message latency notice.
-# With auto_start=True, recording begins right after speak_and_wait() - NO KEY PRESS NEEDED!
+# With auto_start=False, the user must press the PTT key (Right Command) each time.
 # The mic indicator appears in the menu bar when recording is active.
 # Examples:
-# - English: "Ready. Speak when the mic activates. The first message may take a moment."
-# - French: "Prêt. Parle quand le micro s'active. Le premier message peut prendre un moment."
-speak_and_wait("Ready. Speak when the mic activates. The first message may take a moment.")
-# Recording auto-starts immediately after TTS completes - mic indicator shows in menu bar
+# - English: "Ready. Press Right Command to speak. The first message may take a moment."
+# - French: "Prêt. Appuie sur Commande droite pour parler. Le premier message peut prendre un moment."
+speak_and_wait("Ready. Press Right Command to speak. The first message may take a moment.")
 
-# 3. Wait for transcription (auto-stops when silence detected)
+# 3. Wait for transcription (user presses PTT key to record and stop)
 transcription = get_segment_transcription(wait=True, timeout=120)
 
 # 4. Process and respond (use speak() for natural flow, speak_and_wait() at the end)
 speak("Here's what I found.")
 speak("The first point is this.")
-speak_and_wait("What would you like to know next?")  # After this, recording auto-starts!
+speak_and_wait("What would you like to know next?")  # User presses PTT key to reply
 
-# 5. Loop back to step 3 - fully automatic flow, no key presses!
+# 5. Loop back to step 3 - user presses the PTT key each turn
 ```
 
 ## Conversation Loop
 
 ```python
-# Start with VAD auto-stop AND auto-start for seamless conversation
+# Start PTT. auto_start=False so the user controls when to talk;
+# auto_stop=False so recording is not stopped by VAD.
 start_ptt_mode(auto_stop=False, auto_start=False)
 
-# Welcome message - recording starts automatically after TTS!
-# French: "Prêt. Parle quand le micro s'active. Le premier message peut prendre un moment."
-# English: "Ready. Speak when the mic activates. The first message may take a moment."
-speak_and_wait("Ready. Speak when the mic activates. The first message may take a moment.")
-# Recording auto-starts after TTS - mic indicator appears in menu bar!
+# Welcome message - tell the user to press the PTT key to speak.
+# French: "Prêt. Appuie sur Commande droite pour parler. Le premier message peut prendre un moment."
+# English: "Ready. Press Right Command to speak. The first message may take a moment."
+speak_and_wait("Ready. Press Right Command to speak. The first message may take a moment.")
 
-# Main loop - fully automatic, no key presses needed!
+# Main loop - user presses the PTT key each turn to start recording
 while True:
-    # Wait for transcription (VAD auto-stops when user finishes speaking)
+    # Wait for transcription (user presses PTT key to record and stop)
     text = get_segment_transcription(wait=True, timeout=120)
 
     # Check for end command
@@ -191,14 +189,13 @@ while True:
 
     # Check for timeout
     if "Timeout" in text:
-        speak_and_wait("Tu es toujours là?")  # Recording auto-starts after this!
+        speak_and_wait("Tu es toujours là?")  # User presses PTT key to reply
         continue
 
     # Process and respond - use speak() for flow, speak_and_wait() at end
     speak("I understand your question.")
     speak("Let me explain.")
-    speak_and_wait("Does that make sense?")  # After this, recording auto-starts!
-    # Conversation flows naturally - no key presses at all!
+    speak_and_wait("Does that make sense?")  # User presses PTT key to reply
 
 # End session
 stop_ptt_mode()

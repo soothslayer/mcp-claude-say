@@ -12,6 +12,7 @@ import numpy as np
 import soundfile as sf
 import tempfile
 import os
+import subprocess
 import threading
 from typing import Optional, Callable
 from pathlib import Path
@@ -25,6 +26,34 @@ log = get_logger("ptt")
 # VAD configuration defaults
 DEFAULT_VAD_SILENCE_MS = 1500  # 1.5s silence = end of utterance
 DEFAULT_VAD_THRESHOLD = 0.3  # Speech probability threshold (0.3 is more sensitive than 0.5)
+
+# Spoken cues played when recording starts/stops.
+# These give the user clear, unambiguous audible feedback ("start"/"stop")
+# instead of an ambiguous ding.
+START_CUE_WORD = "start"
+STOP_CUE_WORD = "stop"
+
+
+def _play_cue(word: str, wait: bool = False) -> None:
+    """
+    Speak a short cue word using macOS `say`.
+
+    With wait=False the cue is spoken in a detached subprocess so
+    recording/transcription is never delayed. With wait=True we block until
+    `say` finishes — used for the "start" cue so the spoken word completes
+    BEFORE the mic opens and is not captured/transcribed. Failures are logged
+    but never raised.
+    """
+    try:
+        proc = subprocess.Popen(
+            ["say", word],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if wait:
+            proc.wait()
+    except Exception as e:
+        log.debug(f"Failed to speak cue word {word!r}: {e}")
 
 
 class SimplePTTRecorder:
@@ -190,6 +219,10 @@ class SimplePTTRecorder:
                 self._audio.on_audio = self._audio_callback
                 log.info("VAD started for auto-stop detection")
 
+            # Speak "start" and wait for it to finish BEFORE opening the mic,
+            # so the cue word itself isn't captured/transcribed.
+            _play_cue(START_CUE_WORD, wait=True)
+
             self._audio.clear_buffer()
             self._audio.start()
             self._is_recording = True
@@ -209,6 +242,7 @@ class SimplePTTRecorder:
                 return None
 
             self._is_recording = False
+            _play_cue(STOP_CUE_WORD)
 
             # Stop VAD if running
             if self._vad is not None:
